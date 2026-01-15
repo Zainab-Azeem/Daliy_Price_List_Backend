@@ -4,6 +4,7 @@ const cookieParser = require("cookie-parser");
 
 // Routes
 const authRoutes = require("./routes/auth.routes");
+const productRoutes = require("./routes/product.routes");
 
 const app = express();
 app.use(express.json());
@@ -18,9 +19,13 @@ app.use(
   })
 );
 
+
+
+
 // app.use(cors());
 // ---------------- ROUTES ----------------
 app.use("/auth", authRoutes);
+app.use("/products", productRoutes);
 
 
 // ---------------- HEALTH CHECK ----------------
