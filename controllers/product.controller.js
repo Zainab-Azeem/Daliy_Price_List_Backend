@@ -1,5 +1,5 @@
 const  pool  = require("../config/db");
-const { transporter } = require("../config/nodemailer");
+
 
 /* ================= CREATE PRODUCT ================= */
 exports.createProduct = async (req, res) => {

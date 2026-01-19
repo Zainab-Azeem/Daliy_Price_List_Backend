@@ -5,7 +5,8 @@ const {
   loginUser,
   verifyOtp,
   googleLogin,
-  facebookLogin
+  facebookLogin,
+  refreshToken
 } = require("../controllers/auth.controller");
 
 // Register + send OTP
@@ -18,10 +19,12 @@ router.post("/login", loginUser);
 router.post("/verify-otp", verifyOtp);
 router.post("/google", googleLogin);
 router.post("/facebook", facebookLogin);
+router.post("/refresh", refreshToken);
 
 router.post("/forgot-password", c.forgotPassword);
 router.post("/verify-forgot-otp", c.verifyForgotOtp);
 router.post("/reset-password", c.resetPassword);
+
 
 module.exports = router;
 

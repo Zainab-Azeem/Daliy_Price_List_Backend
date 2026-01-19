@@ -4,6 +4,10 @@ const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 
+if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
+  throw new Error("JWT secrets not configured");
+}
+
 // 🔐 Access Token (1 day)
 exports.createAccessToken = (payload) => {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "1d" });
