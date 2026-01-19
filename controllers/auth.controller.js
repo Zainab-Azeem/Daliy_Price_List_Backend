@@ -117,6 +117,75 @@ exports.loginUser = async (req, res) => {
   }
 };
 
+/* ========================= VERIFY OTP ========================= */
+
+exports.verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp)
+      return res.status(400).json({ message: "Email and OTP required" });
+
+    const [rows] = await pool.query(
+      `SELECT * FROM otps
+       WHERE email = ? AND purpose = 'register'
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [email]
+    );
+
+    if (!rows.length) return res.status(400).json({ message: "OTP not found" });
+
+    const record = rows[0];
+    const now = new Date();
+
+    if (record.block_until && new Date(record.block_until) > now) {
+      return res.status(429).json({ message: "Too many attempts" });
+    }
+
+    if (new Date(record.expires_at) < now)
+      return res.status(400).json({ message: "OTP expired" });
+
+    if (record.otp !== otp.toString()) {
+      const attempts = record.attempts + 1;
+
+      if (attempts >= 5) {
+        await pool.query(
+          `UPDATE otps
+           SET attempts = ?, block_until = NOW() + INTERVAL 10 MINUTE
+           WHERE otp_id = ?`,
+          [attempts, record.otp_id]
+        );
+        return res.status(429).json({ message: "Blocked for 10 minutes" });
+      }
+
+      await pool.query(
+        "UPDATE otps SET attempts = attempts + 1 WHERE otp_id = ?",
+        [record.otp_id]
+      );
+
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    await pool.query(
+      "UPDATE users SET is_verified = 1 WHERE email = ?",
+      [email]
+    );
+
+    await pool.query(
+      "DELETE FROM otps WHERE email = ? AND purpose = 'register'",
+      [email]
+    );
+
+    return res.json({ message: "Account verified successfully" });
+
+  } catch (err) {
+    console.error("Verify OTP error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 /* ========================= GOOGLE LOGIN ========================= */
 const client = new OAuth2Client();
 const VALID_CLIENT_IDS = [
@@ -256,23 +325,27 @@ exports.facebookLogin = async (req, res) => {
 };
 
 /* ========================= REFRESH TOKEN ========================= */
-exports.refreshToken = async (req, res) => {
+exports.refreshAccessToken = async (req, res) => {
   try {
-    const refreshToken = req.cookies?.refreshToken;
-    if (!refreshToken)
+    const refreshTokenFromCookie = req.cookies?.refreshToken;
+    if (!refreshTokenFromCookie) {
       return res.status(401).json({ message: "No refresh token" });
+    }
 
-    const payload = verifyRefreshToken(refreshToken);
+    const payload = verifyRefreshToken(refreshTokenFromCookie);
 
     const [rows] = await pool.query(
       `SELECT u.user_id, u.email, r.role_name
-       FROM users u JOIN roles r ON u.role_id=r.role_id
-       WHERE u.user_id=? LIMIT 1`,
+       FROM users u
+       JOIN roles r ON u.role_id = r.role_id
+       WHERE u.user_id = ?
+       LIMIT 1`,
       [payload.userId]
     );
 
-    if (!rows.length)
+    if (!rows.length) {
       return res.status(401).json({ message: "User not found" });
+    }
 
     const user = rows[0];
 
@@ -282,9 +355,8 @@ exports.refreshToken = async (req, res) => {
       role: user.role_name,
     });
 
-    res.json({ accessToken: newAccessToken });
+    return res.json({ accessToken: newAccessToken });
   } catch (err) {
-    res.status(401).json({ message: "Invalid refresh token" });
+    return res.status(401).json({ message: "Invalid refresh token" });
   }
 };
-
