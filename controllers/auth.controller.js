@@ -1,6 +1,6 @@
 const bcrypt = require("bcryptjs");
 const pool = require("../config/db");
-const transporter = require("../config/nodemailer");
+const {transporter} = require("../config/nodemailer");
 const {
   createAccessToken,
   createRefreshToken,
