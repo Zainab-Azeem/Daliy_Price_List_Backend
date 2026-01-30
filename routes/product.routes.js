@@ -11,16 +11,18 @@ const {
 } = require("../controllers/product.controller");
 
 
+const {authenticate} = require("../middlewares/authenticate");
+const {authorize} = require("../middlewares/authorize");
 
 // Get all products (App uses this)
-router.get("/", getAllProducts);
+router.get("/", authenticate,getAllProducts);
 
 // Get single product
-router.get("/:id", getProductById);
+router.get("/:id",authenticate,getProductById);
 
-// 🔓 Admin CRUD (middleware removed TEMPORARILY)
-router.post("/", createProduct);
-router.put("/:id", updateProduct);
-router.delete("/:id", deleteProduct);
+
+router.post("/", authenticate, createProduct);
+router.put("/:id", authenticate, updateProduct);
+router.delete("/:id", authenticate, deleteProduct);
 
 module.exports = router;

@@ -15,24 +15,17 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: "http://localhost:5000", // frontend
-    credentials: true,
+    // origin: "http://localhost:5000", // frontend
+    origin: "*",
+    credentials: false,
   })
 );
 
 
 
-
-
-// app.use(cors());
 // ---------------- ROUTES ----------------
 app.use("/auth", authRoutes);
 app.use("/products", productRoutes);
 
-
-// ---------------- HEALTH CHECK ----------------
-app.get("/", (req, res) => {
-  res.send("🚀 Server is running");
-});
 
 module.exports = app;
