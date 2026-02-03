@@ -7,9 +7,11 @@ const {
   verifyRefreshToken,
 } = require("../utils/jwt");
 const { setRefreshCookie } = require("../utils/cookies");
+const { clearRefreshCookie } = require("../utils/cookies");
 const jwt = require("jsonwebtoken");
 const { OAuth2Client } = require("google-auth-library");
 const axios = require("axios");
+
 
 const REFRESH_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -187,6 +189,94 @@ exports.verifyOtp = async (req, res) => {
 };
 
 
+/* ========================= RESEND OTP ========================= */
+exports.resendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email required" });
+    }
+
+    // Check user exists + not verified
+    const [userRows] = await pool.query(
+      "SELECT is_verified FROM users WHERE email = ? LIMIT 1",
+      [email]
+    );
+
+    if (!userRows.length) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (userRows[0].is_verified) {
+      return res.status(400).json({ message: "Account already verified" });
+    }
+
+    // Get latest OTP record for register
+    const [otpRows] = await pool.query(
+      `SELECT * FROM otps
+       WHERE email = ? AND purpose = 'register'
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [email]
+    );
+
+    const now = new Date();
+
+    // If blocked (too many wrong attempts)
+    if (otpRows.length && otpRows[0].block_until && new Date(otpRows[0].block_until) > now) {
+      return res.status(429).json({ message: "Too many attempts. Try again later." });
+    }
+
+    // Cooldown: prevent spam resend within 60 seconds
+    if (otpRows.length && otpRows[0].created_at) {
+      const lastCreated = new Date(otpRows[0].created_at);
+      const diffSeconds = Math.floor((now - lastCreated) / 1000);
+
+      if (diffSeconds < 60) {
+        return res.status(429).json({
+          message: `Please wait ${60 - diffSeconds}s before resending`,
+        });
+      }
+    }
+
+    // Generate new OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    if (otpRows.length) {
+      // Update existing latest OTP row
+      await pool.query(
+        `UPDATE otps
+         SET otp = ?, attempts = 0, block_until = NULL,
+             expires_at = NOW() + INTERVAL 10 MINUTE
+         WHERE otp_id = ?`,
+        [otp, otpRows[0].otp_id]
+      );
+    } else {
+      // Create OTP row if not exists
+      await pool.query(
+        `INSERT INTO otps (email, otp, purpose, expires_at)
+         VALUES (?, ?, 'register', NOW() + INTERVAL 10 MINUTE)`,
+        [email, otp]
+      );
+    }
+
+    // Send email
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Your OTP Code (Resent)",
+      html: `<p>Your new OTP is <b>${otp}</b></p><p>This OTP expires in 10 minutes.</p>`,
+    });
+
+    return res.json({ message: "OTP resent to email" });
+  } catch (err) {
+    console.error("Resend OTP error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 /* ========================= GOOGLE LOGIN ========================= */
 const client = new OAuth2Client();
 const VALID_CLIENT_IDS = [
@@ -359,5 +449,17 @@ exports.refreshAccessToken = async (req, res) => {
     return res.json({ accessToken: newAccessToken });
   } catch (err) {
     return res.status(401).json({ message: "Invalid refresh token" });
+  }
+};
+
+
+/* ========================= LOGOUT ========================= */
+exports.logoutUser = async (req, res) => {
+  try {
+    clearRefreshCookie(res);
+    return res.json({ message: "Logged out successfully" });
+  } catch (err) {
+    console.error("Logout error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };

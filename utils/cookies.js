@@ -13,3 +13,15 @@ exports.setRefreshCookie = (res, token, maxAgeMs) => {
     path: "/",
   });
 };
+
+exports.clearRefreshCookie = (res) => {
+  const isProduction = process.env.NODE_ENV === "production";
+
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "strict" : "lax",
+    path: "/",
+  });
+};
+
