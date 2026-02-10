@@ -19,8 +19,13 @@
     "express": "^5.2.1",
     "google-auth-library": "^10.5.0",
     "jsonwebtoken": "^9.0.3",
-    "mysql2": "^3.16.0",
+    "knex": "^3.1.0",
+    "mysql2": "^3.16.3",
     "nodemailer": "^7.0.12",
+    "sequelize": "^6.37.7",
     "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "sequelize-cli": "^6.6.5"
   }
 }

@@ -333,7 +333,7 @@ exports.googleLogin = async (req, res) => {
     const refreshToken = createRefreshToken({ userId });
     setRefreshCookie(res, refreshToken, REFRESH_TOKEN_EXPIRY_MS);
 
-    res.json({ message: "Google login successful", accessToken });
+    res.json({ message:"Google login successful", accessToken, user:{ id:userId, email, full_name:name, avatar_url:picture }});
   } catch (err) {
     console.error(err);
     res.status(401).json({ message: "Invalid Google token" });
