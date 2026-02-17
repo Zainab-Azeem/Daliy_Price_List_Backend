@@ -1,7 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const  pool  = require("../config/db");
-const  transporter  = require("../config/nodemailer");
+const {transporter} = require("../config/nodemailer");
 
 /**
  * POST /auth/forgot-password
