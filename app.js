@@ -7,11 +7,11 @@ const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/auth.routes");
 const productRoutes = require("./routes/product.routes");
 
-// const categoryRoutes = require("./routes/category.routes");
 const cartRoutes = require("./routes/cart.routes");
 const addressRoutes = require("./routes/address.routes");
 const orderRoutes = require("./routes/orders.routes");
-// const favouriteRoutes = require("./routes/favourite.routes");
+const categoryRoutes = require("./routes/category.routes");
+const favouriteRoutes = require("./routes/favourite.routes");
 
 
 const app = express();
@@ -34,11 +34,11 @@ app.use(
 app.use("/auth", authRoutes);
 app.use("/products", productRoutes);
 
-// app.use("/categories", categoryRoutes);
 app.use("/cart", cartRoutes);
 app.use("/addresses", addressRoutes);
 app.use("/orders", orderRoutes);
-// app.use("/favourites", favouriteRoutes);
+app.use("/categories", categoryRoutes);
+app.use("/favourites", favouriteRoutes);
 
 
 
