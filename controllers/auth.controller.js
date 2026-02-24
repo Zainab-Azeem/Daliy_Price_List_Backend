@@ -190,15 +190,103 @@ exports.verifyOtp = async (req, res) => {
 
 
 /* ========================= RESEND OTP ========================= */
+// exports.resendOtp = async (req, res) => {
+//   try {
+//     const { email } = req.body;
+
+//     if (!email) {
+//       return res.status(400).json({ message: "Email required" });
+//     }
+
+//     // Check user exists + not verified
+//     const [userRows] = await pool.query(
+//       "SELECT is_verified FROM users WHERE email = ? LIMIT 1",
+//       [email]
+//     );
+
+//     if (!userRows.length) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     if (userRows[0].is_verified) {
+//       return res.status(400).json({ message: "Account already verified" });
+//     }
+
+//     // Get latest OTP record for register
+//     const [otpRows] = await pool.query(
+//       `SELECT * FROM otps
+//        WHERE email = ? AND purpose = 'register'
+//        ORDER BY created_at DESC
+//        LIMIT 1`,
+//       [email]
+//     );
+
+//     const now = new Date();
+
+//     // If blocked (too many wrong attempts)
+//     if (otpRows.length && otpRows[0].block_until && new Date(otpRows[0].block_until) > now) {
+//       return res.status(429).json({ message: "Too many attempts. Try again later." });
+//     }
+
+//     // Cooldown: prevent spam resend within 60 seconds
+//     if (otpRows.length && otpRows[0].created_at) {
+//       const lastCreated = new Date(otpRows[0].created_at);
+//       const diffSeconds = Math.floor((now - lastCreated) / 1000);
+
+//       if (diffSeconds < 60) {
+//         return res.status(429).json({
+//           message: `Please wait ${60 - diffSeconds}s before resending`,
+//         });
+//       }
+//     }
+
+//     // Generate new OTP
+//     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+//     if (otpRows.length) {
+//       // Update existing latest OTP row
+//       await pool.query(
+//         `UPDATE otps
+//          SET otp = ?, attempts = 0, block_until = NULL,
+//              expires_at = NOW() + INTERVAL 10 MINUTE
+//          WHERE otp_id = ?`,
+//         [otp, otpRows[0].otp_id]
+//       );
+//     } else {
+//       // Create OTP row if not exists
+//       await pool.query(
+//         `INSERT INTO otps (email, otp, purpose, expires_at)
+//          VALUES (?, ?, 'register', NOW() + INTERVAL 10 MINUTE)`,
+//         [email, otp]
+//       );
+//     }
+
+//     // Send email
+//     await transporter.sendMail({
+//       from: process.env.EMAIL_USER,
+//       to: email,
+//       subject: "Your OTP Code (Resent)",
+//       html: `<p>Your new OTP is <b>${otp}</b></p><p>This OTP expires in 10 minutes.</p>`,
+//     });
+
+//     return res.json({ message: "OTP resent to email" });
+//   } catch (err) {
+//     console.error("Resend OTP error:", err);
+//     return res.status(500).json({ message: "Server error" });
+//   }
+// };
 exports.resendOtp = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, purpose } = req.body;
 
     if (!email) {
       return res.status(400).json({ message: "Email required" });
     }
 
-    // Check user exists + not verified
+    // default purpose = register
+    const finalPurpose = purpose || "register";
+
+    // Check user exists
     const [userRows] = await pool.query(
       "SELECT is_verified FROM users WHERE email = ? LIMIT 1",
       [email]
@@ -208,23 +296,28 @@ exports.resendOtp = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (userRows[0].is_verified) {
+    // Only block if register flow and already verified
+    if (finalPurpose === "register" && userRows[0].is_verified) {
       return res.status(400).json({ message: "Account already verified" });
     }
 
-    // Get latest OTP record for register
+    // Get latest OTP record for this purpose
     const [otpRows] = await pool.query(
       `SELECT * FROM otps
-       WHERE email = ? AND purpose = 'register'
+       WHERE email = ? AND purpose = ?
        ORDER BY created_at DESC
        LIMIT 1`,
-      [email]
+      [email, finalPurpose]
     );
 
     const now = new Date();
 
     // If blocked (too many wrong attempts)
-    if (otpRows.length && otpRows[0].block_until && new Date(otpRows[0].block_until) > now) {
+    if (
+      otpRows.length &&
+      otpRows[0].block_until &&
+      new Date(otpRows[0].block_until) > now
+    ) {
       return res.status(429).json({ message: "Too many attempts. Try again later." });
     }
 
@@ -256,16 +349,21 @@ exports.resendOtp = async (req, res) => {
       // Create OTP row if not exists
       await pool.query(
         `INSERT INTO otps (email, otp, purpose, expires_at)
-         VALUES (?, ?, 'register', NOW() + INTERVAL 10 MINUTE)`,
-        [email, otp]
+         VALUES (?, ?, ?, NOW() + INTERVAL 10 MINUTE)`,
+        [email, otp, finalPurpose]
       );
     }
 
     // Send email
+    const subject =
+      finalPurpose === "register"
+        ? "Your OTP Code (Verification)"
+        : "Your OTP Code (Reset Password)";
+
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
-      subject: "Your OTP Code (Resent)",
+      subject,
       html: `<p>Your new OTP is <b>${otp}</b></p><p>This OTP expires in 10 minutes.</p>`,
     });
 
