@@ -17,28 +17,40 @@ const REFRESH_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 /* ========================= REGISTER ========================= */
 exports.registerUser = async (req, res) => {
+  const connection = await pool.getConnection(); 
+
   try {
     const { full_name, email, password } = req.body;
     if (!full_name || !email || !password) {
-      
+      connection.release();
       return res.status(400).json({ message: "All fields required" });
     }
 
-    const [exists] = await pool.query(
+    await connection.beginTransaction(); 
+
+    const [exists] = await connection.query( 
       "SELECT user_id FROM users WHERE email = ?",
       [email]
     );
     if (exists.length) {
+      await connection.rollback();
+      connection.release();
       return res.status(409).json({ message: "Email already exists" });
     }
 
-    const [roleRows] = await pool.query(
+    const [roleRows] = await connection.query( 
       "SELECT role_id FROM roles WHERE role_name='user' LIMIT 1"
     );
 
+    if (!roleRows.length) {
+      await connection.rollback();
+      connection.release();
+      return res.status(500).json({ message: "Role 'user' not found" });
+    }
+
     const password_hash = await bcrypt.hash(password, 10);
 
-    await pool.query(
+    await connection.query( 
       `INSERT INTO users (full_name, email, password_hash, role_id, is_verified)
        VALUES (?, ?, ?, ?, 0)`,
       [full_name, email, password_hash, roleRows[0].role_id]
@@ -46,12 +58,13 @@ exports.registerUser = async (req, res) => {
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    await pool.query(
+    await connection.query(
       `INSERT INTO otps (email, otp, purpose, expires_at)
        VALUES (?, ?, 'register', NOW() + INTERVAL 10 MINUTE)`,
       [email, otp]
     );
 
+    // if this fails, catch runs -> rollback happens
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
@@ -59,10 +72,24 @@ exports.registerUser = async (req, res) => {
       html: `<p>Your OTP is <b>${otp}</b></p>`,
     });
 
-    res.json({ message: "OTP sent to email" });
+    await connection.commit(); 
+    connection.release();
+
+    return res.json({ message: "OTP sent to email" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error("Register error:", err);
+
+    try {
+      await connection.rollback(); 
+    } catch (e) {
+      console.error("Rollback error:", e);
+    }
+
+    connection.release();
+
+    return res
+      .status(500)
+      .json({ message: "OTP not sent. Please try again." });
   }
 };
 
