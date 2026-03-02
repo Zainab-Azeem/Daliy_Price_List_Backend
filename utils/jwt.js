@@ -8,9 +8,9 @@ if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
   throw new Error("JWT secrets not configured");
 }
 
-// 🔐 Access Token (1 day)
+// 🔐 Access Token
 exports.createAccessToken = (payload) => {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "1d" });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "20m" });
 };
 
 // 🔄 Refresh Token (7 days)
