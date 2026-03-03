@@ -2,21 +2,54 @@ const  pool  = require("../config/db");
 
 
 /* ================= CREATE PRODUCT ================= */
+// exports.createProduct = async (req, res) => {
+//   try {
+//     const {
+//       name,
+//       description,
+//       price,
+//       discount_percent,
+//       stock_qty,
+//       image_url,
+//       category
+//     } = req.body;
+
+//     if (!name || !price) {
+//       return res.status(400).json({ message: "Name and price required" });
+//     }
+
+//     await pool.query(
+//       `INSERT INTO products
+//       (name, description, price, discount_percent, stock_qty, image_url, category)
+//       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+//       [
+//         name,
+//         description || "",
+//         price,
+//         discount_percent || 0,
+//         stock_qty || 0,
+//         image_url || "",
+//         category || ""
+//       ]
+//     );
+
+//     res.status(201).json({ message: "Product created successfully" });
+
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// };
 exports.createProduct = async (req, res) => {
   try {
-    const {
-      name,
-      description,
-      price,
-      discount_percent,
-      stock_qty,
-      image_url,
-      category
-    } = req.body;
+    const { name, description, price, discount_percent, stock_qty, category } = req.body;
 
     if (!name || !price) {
       return res.status(400).json({ message: "Name and price required" });
     }
+
+    // multer gives uploaded file here
+    const image_url = req.file ? `/uploads/${req.file.filename}` : "";
 
     await pool.query(
       `INSERT INTO products
@@ -28,13 +61,12 @@ exports.createProduct = async (req, res) => {
         price,
         discount_percent || 0,
         stock_qty || 0,
-        image_url || "",
+        image_url,
         category || ""
       ]
     );
 
-    res.status(201).json({ message: "Product created successfully" });
-
+    res.status(201).json({ message: "Product created successfully"});
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -79,19 +111,69 @@ exports.getProductById = async (req, res) => {
 };
 
 /* ================= UPDATE PRODUCT ================= */
+// exports.updateProduct = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     const {
+//       name,
+//       description,
+//       price,
+//       discount_percent,
+//       stock_qty,
+//       image_url,
+//       category
+//     } = req.body;
+
+//     const [result] = await pool.query(
+//       `UPDATE products SET
+//         name = ?,
+//         description = ?,
+//         price = ?,
+//         discount_percent = ?,
+//         stock_qty = ?,
+//         image_url = ?,
+//         category = ?
+//       WHERE product_id = ?`,
+//       [
+//         name,
+//         description,
+//         price,
+//         discount_percent,
+//         stock_qty,
+//         image_url,
+//         category,
+//         id
+//       ]
+//     );
+
+//     if (result.affectedRows === 0) {
+//       return res.status(404).json({ message: "Product not found" });
+//     }
+
+//     res.json({ message: "Product updated successfully" });
+
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// };
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
+    const { name, description, price, discount_percent, stock_qty, category } = req.body;
 
-    const {
-      name,
-      description,
-      price,
-      discount_percent,
-      stock_qty,
-      image_url,
-      category
-    } = req.body;
+    // Get existing product (to keep old image if new not uploaded)
+    const [existing] = await pool.query(
+      `SELECT image_url FROM products WHERE product_id = ? AND is_active = 1`,
+      [id]
+    );
+
+    if (!existing.length) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    const image_url = req.file ? `/uploads/${req.file.filename}` : existing[0].image_url;
 
     const [result] = await pool.query(
       `UPDATE products SET
@@ -115,12 +197,7 @@ exports.updateProduct = async (req, res) => {
       ]
     );
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Product not found" });
-    }
-
-    res.json({ message: "Product updated successfully" });
-
+    res.json({ message: "Product updated successfully", image_url });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });

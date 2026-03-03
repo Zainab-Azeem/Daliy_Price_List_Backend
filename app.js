@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const path = require("path");
 
 
 // Routes
@@ -33,6 +34,7 @@ app.use(
 // ---------------- ROUTES ----------------
 app.use("/auth", authRoutes);
 app.use("/products", productRoutes);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/cart", cartRoutes);
 app.use("/addresses", addressRoutes);
