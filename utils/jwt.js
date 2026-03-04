@@ -15,7 +15,7 @@ exports.createAccessToken = (payload) => {
 
 // 🔄 Refresh Token (7 days)
 exports.createRefreshToken = (payload) => {
-  return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: "7d" });
+  return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: "1d" });
 };
 
 // 🔢 OTP Token (10 minutes)

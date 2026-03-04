@@ -4,6 +4,7 @@ const cookieParser = require("cookie-parser");
 const path = require("path");
 
 
+
 // Routes
 const authRoutes = require("./routes/auth.routes");
 const productRoutes = require("./routes/product.routes");
@@ -13,6 +14,7 @@ const addressRoutes = require("./routes/address.routes");
 const orderRoutes = require("./routes/orders.routes");
 const categoryRoutes = require("./routes/category.routes");
 const favouriteRoutes = require("./routes/favourite.routes");
+const userRoutes = require("./routes/users.routes");
 
 
 const app = express();
@@ -35,6 +37,8 @@ app.use(
 app.use("/auth", authRoutes);
 app.use("/products", productRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+app.use("/users", userRoutes);
 
 app.use("/cart", cartRoutes);
 app.use("/addresses", addressRoutes);
