@@ -5,6 +5,7 @@ const {
   getUserById,
   updateUser,
   deleteUser,
+  updateUserRole
 } = require("../controllers/users.controller");
 
 
@@ -18,5 +19,5 @@ router.get("/",authenticate, getAllUsers);
 router.get("/:id", authenticate, getUserById);
 router.put("/:id", authenticate, updateUser);
 router.delete("/:id", authenticate, deleteUser);
-
+router.put("/:id/role", authenticate, updateUserRole);
 module.exports = router;

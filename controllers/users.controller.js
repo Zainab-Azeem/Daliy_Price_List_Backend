@@ -202,3 +202,47 @@ exports.deleteUser = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+exports.updateUserRole = async (req, res) => {
+  try {
+    const { id } = req.params;      // user_id
+    const { role_name } = req.body; // admin / superadmin / user
+
+    if (!role_name) {
+      return res.status(400).json({ message: "role_name is required" });
+    }
+
+    // Check if user exists
+    const [user] = await pool.query(
+      `SELECT user_id FROM users WHERE user_id = ? AND is_active = 1`,
+      [id]
+    );
+
+    if (!user.length) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Get role_id from roles table
+    const [role] = await pool.query(
+      `SELECT role_id FROM roles WHERE role_name = ? LIMIT 1`,
+      [role_name]
+    );
+
+    if (!role.length) {
+      return res.status(404).json({ message: "Role not found" });
+    }
+
+    // Update role_id
+    await pool.query(
+      `UPDATE users SET role_id = ? WHERE user_id = ?`,
+      [role[0].role_id, id]
+    );
+
+    res.json({ message: "User role updated successfully" });
+
+  } catch (err) {
+    console.error("updateUserRole error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
