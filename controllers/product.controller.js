@@ -11,7 +11,12 @@ exports.createProduct = async (req, res) => {
     }
 
     // multer gives uploaded file here
-    const image_url = req.file ? `/uploads/${req.file.filename}` : "";
+    // const image_url = req.file ? `/uploads/${req.file.filename}` : "";
+    const BASE_URL = process.env.BASE_URL;
+
+    const image_url = req.file
+      ? `${BASE_URL}/uploads/${req.file.filename}`
+      : null;
 
     await pool.query(
       `INSERT INTO products
