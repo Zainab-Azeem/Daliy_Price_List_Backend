@@ -15,6 +15,7 @@ const orderRoutes = require("./routes/orders.routes");
 const categoryRoutes = require("./routes/category.routes");
 const favouriteRoutes = require("./routes/favourite.routes");
 const userRoutes = require("./routes/users.routes");
+const suggestionRoutes = require("./routes/suggestion.routes");
 
 
 const app = express();
@@ -26,8 +27,9 @@ app.use(cookieParser());
 app.use(
   cors({
     // origin: "http://localhost:5000", // frontend
-    origin: "*",
-    credentials: false,
+    // origin:"*",
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
   })
 );
 
@@ -45,6 +47,7 @@ app.use("/addresses", addressRoutes);
 app.use("/orders", orderRoutes);
 app.use("/categories", categoryRoutes);
 app.use("/favourites", favouriteRoutes);
+app.use("/suggestions", suggestionRoutes);
 
 
 
