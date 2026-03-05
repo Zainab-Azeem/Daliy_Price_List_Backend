@@ -4,7 +4,7 @@ const  pool  = require("../config/db");
 /* ================= CREATE PRODUCT ================= */
 exports.createProduct = async (req, res) => {
   try {
-    const { name, description, price, discount_percent, stock_qty, category } = req.body;
+    const { name, description, price, discount_percent, stock_qty, category_id } = req.body;
 
     if (!name || !price) {
       return res.status(400).json({ message: "Name and price required" });
@@ -20,7 +20,7 @@ exports.createProduct = async (req, res) => {
 
     await pool.query(
       `INSERT INTO products
-      (name, description, price, discount_percent, stock_qty, image_url, category)
+      (name, description, price, discount_percent, stock_qty, image_url, category_id)
       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         name,
@@ -29,7 +29,7 @@ exports.createProduct = async (req, res) => {
         discount_percent || 0,
         stock_qty || 0,
         image_url,
-        category || ""
+        category_id ? Number(category_id) : null
       ]
     );
 
@@ -44,13 +44,16 @@ exports.createProduct = async (req, res) => {
 exports.getAllProducts = async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT * FROM products WHERE is_active = 1 ORDER BY created_at DESC`
+      `SELECT p.*, c.name AS category_name
+       FROM products p
+       LEFT JOIN categories c ON c.category_id = p.category_id
+       WHERE p.is_active = 1
+       ORDER BY p.created_at DESC`
     );
 
     res.json(rows);
-
   } catch (err) {
-    console.error(err);
+    console.error("getAllProducts error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -61,7 +64,11 @@ exports.getProductById = async (req, res) => {
     const { id } = req.params;
 
     const [rows] = await pool.query(
-      `SELECT * FROM products WHERE product_id = ? AND is_active = 1`,
+      `SELECT p.*, c.name AS category_name
+       FROM products p
+       LEFT JOIN categories c ON c.category_id = p.category_id
+       WHERE p.product_id = ? AND p.is_active = 1
+       LIMIT 1`,
       [id]
     );
 
@@ -70,18 +77,18 @@ exports.getProductById = async (req, res) => {
     }
 
     res.json(rows[0]);
-
   } catch (err) {
-    console.error(err);
+    console.error("getProductById error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 /* ================= UPDATE PRODUCT ================= */
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, price, discount_percent, stock_qty, category } = req.body;
+    const { name, description, price, discount_percent, stock_qty, category_id } = req.body;
 
     // Get existing product
     const [existing] = await pool.query(
@@ -95,14 +102,15 @@ exports.updateProduct = async (req, res) => {
 
     const oldProduct = existing[0];
 
-    const image_url = req.file
-      ? `/uploads/${req.file.filename}`
-      : oldProduct.image_url;
+    const BASE_URL = process.env.BASE_URL;
+const image_url = req.file
+  ? `${BASE_URL}/uploads/${req.file.filename}`
+  : oldProduct.image_url; // keep old image if no new file uploaded
 
     // Insert NEW row instead of updating
     await pool.query(
       `INSERT INTO products
-      (name, description, price, discount_percent, stock_qty, image_url, category)
+      (name, description, price, discount_percent, stock_qty, image_url, category_id)
       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         name || oldProduct.name,
@@ -111,7 +119,7 @@ exports.updateProduct = async (req, res) => {
         discount_percent || oldProduct.discount_percent,
         stock_qty || oldProduct.stock_qty,
         image_url,
-        category || oldProduct.category
+        category_id || oldProduct.category_id
       ]
     );
 
@@ -144,3 +152,5 @@ exports.deleteProduct = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
