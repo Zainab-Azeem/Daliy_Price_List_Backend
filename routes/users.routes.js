@@ -14,10 +14,10 @@ const {authorize} = require("../middlewares/authorize");
 
 
 
-router.post("/", authenticate,createUser);
-router.get("/",authenticate, getAllUsers);
-router.get("/:id", authenticate, getUserById);
-router.put("/:id", authenticate, updateUser);
-router.delete("/:id", authenticate, deleteUser);
-router.put("/:id/role", authenticate, updateUserRole);
+router.post("/", authenticate, authorize("superadmin"),createUser);
+router.get("/",authenticate, authorize("superadmin"), getAllUsers);
+router.get("/:id", authenticate, authorize("superadmin"),getUserById);
+router.put("/:id", authenticate, authorize("superadmin"), updateUser);
+router.delete("/:id", authenticate, authorize("superadmin"), deleteUser);
+router.put("/:id/role", authenticate, authorize("superadmin"), updateUserRole);
 module.exports = router;

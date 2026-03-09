@@ -15,16 +15,16 @@ const {authenticate} = require("../middlewares/authenticate");
 const {authorize} = require("../middlewares/authorize");
 
 // Get all products (App uses this)
-router.get("/", authenticate,getAllProducts);
+router.get("/", authenticate,authorize("admin","superadmin","user"),getAllProducts);
 
 // Get single product
-router.get("/:id",authenticate,getProductById);
+router.get("/:id",authenticate,authorize("admin","superadmin","user"),getProductById);
 
 
 
-router.post("/", authenticate, upload.single("image"), createProduct);
-router.put("/:id", authenticate, upload.single("image"), updateProduct);
-router.delete("/:id", authenticate, deleteProduct);
+router.post("/", authenticate, authorize("admin","superadmin"),upload.single("image"), createProduct);
+router.put("/:id", authenticate, authorize("admin","superadmin"), upload.single("image"), updateProduct);
+router.delete("/:id", authenticate, authorize("admin","superadmin"), deleteProduct);
 
 
 module.exports = router;
