@@ -154,3 +154,26 @@ exports.deleteProduct = async (req, res) => {
 };
 
 
+/* ================= GET PRODUCTS BY date ================= */
+exports.getProductsbydate = async (req, res) => {
+  try {
+    const { date } = req.query;
+
+    const selectedDate = date || new Date().toISOString().split("T")[0];
+
+    const [rows] = await pool.query(
+      `SELECT p.*, c.name AS category_name
+       FROM products p
+       LEFT JOIN categories c ON c.category_id = p.category_id
+       WHERE p.is_active = 1
+         AND DATE(p.created_at) = ?
+       ORDER BY p.created_at DESC`,
+      [selectedDate]
+    );
+
+    res.json(rows); // keep same format (no frontend change needed)
+  } catch (err) {
+    console.error("getAllProducts error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
