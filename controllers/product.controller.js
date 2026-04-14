@@ -171,7 +171,7 @@ exports.getProductsbydate = async (req, res) => {
       [selectedDate]
     );
 
-    res.json(rows); // keep same format (no frontend change needed)
+    res.json(rows); 
   } catch (err) {
     console.error("getAllProducts error:", err);
     res.status(500).json({ message: "Server error" });
