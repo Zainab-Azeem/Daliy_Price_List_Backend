@@ -6,6 +6,7 @@ const {
   updateProduct,
   deleteProduct,
   getProductsbydate,
+  updateProductPrice,
 
 } = require("../controllers/product.controller");
 const upload = require("../middlewares/upload");
@@ -26,6 +27,8 @@ router.get("/:id",authenticate,authorize("admin","superadmin","user"),getProduct
 
 router.post("/", authenticate, authorize("admin","superadmin"),upload.single("image"), createProduct);
 router.put("/:id", authenticate, authorize("admin","superadmin"), upload.single("image"), updateProduct);
+router.post("/update-price/:id",authenticate,authorize("admin", "superadmin"),updateProductPrice);
+
 router.delete("/:id", authenticate, authorize("admin","superadmin"), deleteProduct);
 
 

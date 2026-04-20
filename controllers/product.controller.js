@@ -2,6 +2,8 @@ const  pool  = require("../config/db");
 
 
 /* ================= CREATE PRODUCT ================= */
+const { v4: uuidv4 } = require("uuid");
+
 exports.createProduct = async (req, res) => {
   try {
     const { name, description, price, discount_percent, stock_qty, category_id } = req.body;
@@ -10,46 +12,81 @@ exports.createProduct = async (req, res) => {
       return res.status(400).json({ message: "Name and price required" });
     }
 
-    // multer gives uploaded file here
-    // const image_url = req.file ? `/uploads/${req.file.filename}` : "";
-    const BASE_URL = process.env.BASE_URL;
+    const productId = uuidv4(); // ✅ generate UUID
 
+    const BASE_URL = process.env.BASE_URL;
     const image_url = req.file
       ? `${BASE_URL}/uploads/${req.file.filename}`
       : null;
 
+    // 1️⃣ insert into products
     await pool.query(
       `INSERT INTO products
-      (name, description, price, discount_percent, stock_qty, image_url, category_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (product_id, name, description, image_url, category_id)
+       VALUES (?, ?, ?, ?, ?)`,
       [
+        productId,
         name,
         description || "",
-        price,
-        discount_percent || 0,
-        stock_qty || 0,
         image_url,
-        category_id ? Number(category_id) : null
+        category_id || null
       ]
     );
 
-    res.status(201).json({ message: "Product created successfully"});
+    // 2️⃣ insert into product_updates
+    await pool.query(
+      `INSERT INTO product_updates
+       (product_id, price, discount_percent, stock_qty)
+       VALUES (?, ?, ?, ?)`,
+      [
+        productId,
+        price,
+        discount_percent || 0,
+        stock_qty || 0
+      ]
+    );
+
+    res.status(201).json({
+      message: "Product created successfully",
+      product_id: productId
+    });
+
   } catch (err) {
-    console.error(err);
+    console.error("createProduct error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
-
 /* ================= GET ALL PRODUCTS ================= */
 exports.getAllProducts = async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      `SELECT p.*, c.name AS category_name
-       FROM products p
-       LEFT JOIN categories c ON c.category_id = p.category_id
-       WHERE p.is_active = 1
-       ORDER BY p.created_at DESC`
-    );
+    const [rows] = await pool.query(`
+      SELECT 
+        p.product_id,
+        p.name,
+        p.description,
+        p.image_url,
+        p.category_id,
+        p.is_active,
+        p.created_at,
+        p.updated_at,
+        c.name AS category_name,
+        pu.price,
+        pu.discount_percent,
+        pu.stock_qty,
+        pu.created_at AS update_created_at
+      FROM products p
+      LEFT JOIN categories c ON c.category_id = p.category_id
+      LEFT JOIN product_updates pu
+        ON pu.update_id = (
+          SELECT pu2.update_id
+          FROM product_updates pu2
+          WHERE pu2.product_id = p.product_id
+          ORDER BY pu2.created_at DESC
+          LIMIT 1
+        )
+      WHERE p.is_active = 1
+      ORDER BY p.created_at DESC
+    `);
 
     res.json(rows);
   } catch (err) {
@@ -88,9 +125,8 @@ exports.getProductById = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, price, discount_percent, stock_qty, category_id } = req.body;
+    const { name, description, category_id } = req.body;
 
-    // Get existing product
     const [existing] = await pool.query(
       `SELECT * FROM products WHERE product_id = ? AND is_active = 1`,
       [id]
@@ -101,32 +137,56 @@ exports.updateProduct = async (req, res) => {
     }
 
     const oldProduct = existing[0];
-
     const BASE_URL = process.env.BASE_URL;
-const image_url = req.file
-  ? `${BASE_URL}/uploads/${req.file.filename}`
-  : oldProduct.image_url; // keep old image if no new file uploaded
 
-    // Insert NEW row instead of updating
+    const image_url = req.file
+      ? `${BASE_URL}/uploads/${req.file.filename}`
+      : oldProduct.image_url;
+
     await pool.query(
-      `INSERT INTO products
-      (name, description, price, discount_percent, stock_qty, image_url, category_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `UPDATE products
+       SET name = ?, description = ?, image_url = ?, category_id = ?, updated_at = NOW()
+       WHERE product_id = ?`,
       [
         name || oldProduct.name,
         description || oldProduct.description,
-        price || oldProduct.price,
-        discount_percent || oldProduct.discount_percent,
-        stock_qty || oldProduct.stock_qty,
         image_url,
-        category_id || oldProduct.category_id
+        category_id || oldProduct.category_id,
+        id
       ]
     );
 
-    res.json({ message: "New product version created successfully" });
-
+    res.json({ message: "Product updated successfully" });
   } catch (err) {
-    console.error(err);
+    console.error("updateProduct error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateProductPrice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { price, discount_percent, stock_qty } = req.body;
+
+    if (!price) {
+      return res.status(400).json({ message: "Price is required" });
+    }
+
+    await pool.query(
+      `INSERT INTO product_updates
+       (product_id, price, discount_percent, stock_qty)
+       VALUES (?, ?, ?, ?)`,
+      [
+        id,
+        price,
+        discount_percent || 0,
+        stock_qty || 0
+      ]
+    );
+
+    res.json({ message: "Product price updated successfully" });
+  } catch (err) {
+    console.error("updateProductPrice error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -158,22 +218,32 @@ exports.deleteProduct = async (req, res) => {
 exports.getProductsbydate = async (req, res) => {
   try {
     const { date } = req.query;
-
     const selectedDate = date || new Date().toISOString().split("T")[0];
 
-    const [rows] = await pool.query(
-      `SELECT p.*, c.name AS category_name
-       FROM products p
-       LEFT JOIN categories c ON c.category_id = p.category_id
-       WHERE p.is_active = 1
-         AND DATE(p.created_at) = ?
-       ORDER BY p.created_at DESC`,
-      [selectedDate]
-    );
+    const [rows] = await pool.query(`
+      SELECT 
+        p.product_id,
+        p.name,
+        p.description,
+        p.image_url,
+        p.category_id,
+        p.is_active,
+        c.name AS category_name,
+        pu.price,
+        pu.discount_percent,
+        pu.stock_qty,
+        pu.created_at AS update_created_at
+      FROM products p
+      LEFT JOIN categories c ON c.category_id = p.category_id
+      INNER JOIN product_updates pu ON pu.product_id = p.product_id
+      WHERE p.is_active = 1
+        AND DATE(pu.created_at) = ?
+      ORDER BY pu.created_at DESC
+    `, [selectedDate]);
 
-    res.json(rows); 
+    res.json(rows);
   } catch (err) {
-    console.error("getAllProducts error:", err);
+    console.error("getProductsbydate error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
